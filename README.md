@@ -1,3 +1,9 @@
+Ausführung mit allen Funktionen:
+
+``./anydesk.ps1 -mode remove_and_install -onlyForegroundAccess $true -license <license>``
+
+Entfernt alle vorhandenen AnyDesk Installationen, lädt und installiert die aktuelleste Version, setzt den Lizenz Key und setzt die Option "Interaktiver Zugang" auf "Verbindungsanfragen nur anzeigen, wenn das AnyDesk-Fenster sichtbar ist".
+
 Entferne alle AnyDesk Installationen in "C:\Program Files" und "C:\Program Files (x86)":
 
 ``anydesk.ps1 -mode remove``
