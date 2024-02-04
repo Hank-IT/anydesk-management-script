@@ -17,3 +17,8 @@ Entferne alle vorhandenen AnyDesk Versionen (inklusive Custom Clients), lade und
 Zusätzlich kann bei einer Installation auch direkt eine Lizenz registriert werden:
 
 ``anydesk.ps1 -mode remove_and_install -license <license-id>``
+
+Getestet mit:
+ - AnyDesk 7.0.14 Custom Client (.exe)
+ - AnyDesk 7.0.14 Custom Client (.msi)
+ - AnyDesk 8.0.8 Default Client
