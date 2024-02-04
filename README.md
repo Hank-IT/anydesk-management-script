@@ -17,6 +17,3 @@ Entferne alle vorhandenen AnyDesk Versionen (inklusive Custom Clients), lade und
 Zusätzlich kann bei einer Installation auch direkt eine Lizenz registriert werden:
 
 ``anydesk.ps1 -mode remove_and_install -license <license-id>``
-
-
-Installationen werden nur ausgeführt, wenn AnyDesk nicht bereits unter `"C:\Program Files (x86)\AnyDesk.exe" vorhanden ist.`
