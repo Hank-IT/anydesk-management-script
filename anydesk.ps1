@@ -2,7 +2,8 @@
 Param(
 [string]$mode,
 [string]$license,
-[bool]$onlyForegroundAccess
+[bool]$onlyForegroundAccess,
+[string]$acl
 )
 
 # Variables
@@ -72,10 +73,27 @@ function restartAnyDeskService() {
 }
 
 function configureForegroundAccess() {
-    (Get-Content -Path $anyDeskConfigDirectory\system.conf) | Add-Content -value "ad.security.interactive_access=1"  | Set-Content $anyDeskConfigDirectory\system.conf
+    (Get-Content -Path $anyDeskConfigDirectory\system.conf) | Where-Object { $_ -notmatch "ad.security.interactive_access" } | set-content $anyDeskConfigDirectory\system.conf
     Add-Content -Path $anyDeskConfigDirectory\system.conf -Value "ad.security.interactive_access=1"
+}
+
+function addAcl() {
+    $ids = $acl.Split(",")
     
-     
+    $line = ''
+    
+    foreach($id in $ids) {
+        $line = $line + $id + ':true'
+        
+        if ($id -ne $ids[-1]) {
+             $line = $line + ';'
+        }
+    }
+    
+    (Get-Content -Path $anyDeskConfigDirectory\system.conf) | Where-Object { $_ -notmatch "ad.security.acl_enabled" } | set-content $anyDeskConfigDirectory\system.conf
+    (Get-Content -Path $anyDeskConfigDirectory\system.conf) | Where-Object { $_ -notmatch "ad.security.acl_list" }  | set-content $anyDeskConfigDirectory\system.conf
+    Add-Content -Path $anyDeskConfigDirectory\system.conf -Value "ad.security.acl_enabled=true"
+    Add-Content -Path $anyDeskConfigDirectory\system.conf -Value "ad.security.acl_list=$line"
 }
 
 function removeAnyDeskServices() {
@@ -118,6 +136,10 @@ function installAnyDesk($download) {
        
        if ($onlyForegroundAccess) {
             configureForegroundAccess
+       }
+       
+       if ($acl) {
+           addAcl         
        }
     }
     
