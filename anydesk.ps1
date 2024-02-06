@@ -1,3 +1,11 @@
+Param(
+[string]$mode,
+[string]$license,
+[bool]$onlyForegroundAccess
+[bool]$onlyForegroundAccess,
+[string]$acl
+)
+
 # Variables
 $anyDeskWindowsUrl = "https://download.anydesk.com/AnyDesk.exe"
 $anyDeskDownloadFolder = $env:TEMP
