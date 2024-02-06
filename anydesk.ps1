@@ -1,11 +1,3 @@
-[CmdletBinding(SupportsShouldProcess=$True)]
-Param(
-[string]$mode,
-[string]$license,
-[bool]$onlyForegroundAccess,
-[string]$acl
-)
-
 # Variables
 $anyDeskWindowsUrl = "https://download.anydesk.com/AnyDesk.exe"
 $anyDeskDownloadFolder = $env:TEMP
@@ -44,13 +36,23 @@ function removeInstallations() {
                     Write-Host "AnyDesk Deinstallation würde mit [$directory/$directoryName/$anyDeskBin --silent --remove] versucht werden, wird jedoch nicht ausgeführt, da Skript mit -Whatif gestartet" 
                 } else {
                     Write-Host "Deinstalliere Anydesk mit Befehl [$directory/$directoryName/$anyDeskBin --silent --remove]" 
-                    Start-Process -NoNewWindow -FilePath `"$directory/$directoryName/$anyDeskBin`" -ArgumentList "--silent --remove"
+                    Start-Process -NoNewWindow -FilePath `"$directory/$directoryName/$anyDeskBin`" -ArgumentList "--silent --remove"  -Wait
   
                     Write-Host "Entferne verbleibende Einträge in Programme und Funktionen"
                     $paths  = @("HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall","HKLM:\SOFTWARE\\Wow6432node\\Microsoft\\Windows\\CurrentVersion\\Uninstall")   
 
+                    # Find installations with uninstallstring
                     foreach ($path in $paths) {
-                        Get-Childitem -recurse -Path $path | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object Publisher -like "AnyDesk*" | Remove-Item -Force
+                        $msiInstallations = Get-Childitem -recurse -Path $path | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object {($_.Publisher -like "AnyDesk*") -or ($_.Publisher -like "philandro*")} | Where-Object UninstallString -like "MsiExec.exe*"
+
+                        # Try to uninstall them using msiexec
+                        foreach($msiInstallation in $msiInstallations) {
+                            Start-Process -NoNewWindow -FilePath "msiexec.exe" -ArgumentList "/X `"$msiInstallation.PSChildName`" /qn"  -Wait
+                        }
+                    }
+
+                    foreach ($path in $paths) {
+                        Get-Childitem -recurse -Path $path | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object {($_.Publisher -like "AnyDesk*") -or ($_.Publisher -like "philandro*")} | Remove-Item -Force
                     }
                     
                     Write-Host "Stoppe und entferne verbleibende AnyDesk Dienste"
@@ -125,7 +127,7 @@ function installAnyDesk($download) {
        Write-Host "AnyDesk Installation würde mit [$downloadedAnydeskFile --install $anyDeskTargetinstallDirectory --start-with-win --create-desktop-icon --create-shortcuts --silent --update-auto] versucht werden, wird jedoch nicht ausgeführt, da Skript mit -Whatif gestartet" 
     } else {
        Write-Host "Installiere Anydesk mit [$downloadedAnydeskFile --install "$anyDeskTargetinstallDirectory" --start-with-win --create-desktop-icon --create-shortcuts --silent --update-auto]"
-       Start-Process -NoNewWindow -FilePath $downloadedAnydeskFile -ArgumentList "--install `"$anyDeskTargetinstallDirectory`" --start-with-win --create-desktop-icon --create-shortcuts --silent --update-auto"
+       Start-Process -NoNewWindow -FilePath $downloadedAnydeskFile -ArgumentList "--install `"$anyDeskTargetinstallDirectory`" --start-with-win --create-desktop-icon --create-shortcuts --silent --update-auto" -Wait
 
        sleep(10)
 
@@ -148,10 +150,16 @@ function installAnyDesk($download) {
     Remove-Item -Path $downloadedAnydeskFile
 }
 
+function retainId() {
+    Get-Childitem -Path $anyDeskConfigDirectory -Recurse -Include "service.conf" | sort LastWriteTime | select -last 1 | Move-Item -Destination $anyDeskConfigDirectory\service.conf
+}
+
 function removeAndInstall() {
     downloadAnydesk
 
     removeInstallations
+
+    retainId
 
     installAnyDesk $false
 }
