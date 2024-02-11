@@ -36,7 +36,7 @@ function removeInstallations() {
                    Write-Host "AnyDesk Prozess [$anyDeskBin] wird nicht beendet, da mit -Whatif gestartet"
                 } else {
                    Write-Host "AnyDesk Prozess [$anyDeskBin] wird beendet"
-                   taskkill /IM $anyDeskBin /F 
+                   Start-Process -NoNewWindow -FilePath "taskkill.exe" -ArgumentList "/IM $anyDeskBin /F"
                    Write-Host "AnyDesk Prozess [$anyDeskBin] wurde beendet"
                 }
 
@@ -66,7 +66,7 @@ function removeInstallations() {
                     Write-Host "Stoppe und entferne verbleibende AnyDesk Dienste"
                     removeAnyDeskServices
                     
-                    taskkill /IM $anyDeskBin /F 
+                    Start-Process -NoNewWindow -FilePath "taskkill.exe" -ArgumentList "/IM $anyDeskBin /F"
                     
                     Write-Host "Entferne Programmverzeichnis"
                     Remove-Item -Path $directory/$directoryName -Recurse -Force
@@ -109,7 +109,7 @@ function addAcl() {
 function removeAnyDeskServices() {
     Get-Service | where-object {$_.name -like '*AnyDesk*'} | ForEach-Object {
         Stop-Service -Name $_.Name -Force
-        sc.exe delete "$_.Name"
+        Start-Process -NoNewWindow -FilePath "sc.exe" -ArgumentList "delete `"$_.Name`""
     }
 }
 
@@ -121,7 +121,7 @@ function downloadAnydesk() {
 
         Remove-Item -Path $downloadedAnydeskFile -Force
 
-        exit
+        exit 5
     }
 }
 
@@ -186,3 +186,5 @@ Switch($mode) {
         removeAndInstall
     }
 }
+
+exit 0
