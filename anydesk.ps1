@@ -22,6 +22,7 @@ If ($WhatIfPreference) {
 }
 
 function removeInstallations() {
+    # Find anydesk installations in program folders
     foreach ($directory in $programFilesDirectories) {
         Get-ChildItem "$directory" -Filter AnyDesk* | ForEach-Object {
             $directoryName = $_.Name
@@ -60,7 +61,9 @@ function removeInstallations() {
                     }
 
                     foreach ($path in $paths) {
-                        Get-Childitem -recurse -Path $path | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object {($_.Publisher -like "AnyDesk*") -or ($_.Publisher -like "philandro*")} | Remove-Item -Force
+                        if (Test-Path $path) {
+                            Get-Childitem -recurse -Path $path -ErrorAction SilentlyContinue | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object {($_.Publisher -like "AnyDesk*") -or ($_.Publisher -like "philandro*")} | Remove-Item -Force  -ErrorAction SilentlyContinue
+                        }
                     }
                     
                     Write-Host "Stoppe und entferne verbleibende AnyDesk Dienste"
@@ -74,6 +77,37 @@ function removeInstallations() {
             }
         }
     }
+
+    
+    # Cleanup registry
+    Get-Childitem  -Path "HKLM:\SYSTEM\\ControlSet001\\Services" | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object {($_.DisplayName -like "AnyDesk*") } | Remove-Item -Force
+
+    $startupFolderPath = "HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\StartupFolder"
+
+    if (Test-Path $startupFolderPath) {
+        $name = ((Get-ItemProperty -Path "HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\StartupFolder" ).psobject.properties | Where-Object { ($_.Name -like "AnyDesk*") }).name
+        Remove-ItemProperty -Force -Path "HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\StartupFolder" -Name $name
+    }
+
+    ((Get-ItemProperty -Path "HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\Folders" ).psobject.properties | Where-Object { ($_.Name -like "*AnyDesk*") }).name | ForEach-Object {
+        if ($_) {
+            Remove-ItemProperty -Force -Path "HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\Folders" -Name $_
+        }
+    }
+
+    Get-Childitem -Path "HKLM:\SOFTWARE\\Classes\\Installer\\Products" | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object {($_.ProductName -like "AnyDesk*") } | Remove-Item -Force -Recurse
+
+    Get-Childitem -recurse -Path "HKLM:\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\UserData\\S-1-5-18\\Products" | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object {($_.DisplayName -like "AnyDesk*") -or ($_.Publisher -like "philandro*") } | ForEach-Object {
+        if (Test-Path $_.LocalPackage) {
+            Remove-Item $_.LocalPackage -Force
+        }
+    } | Remove-Item -Force -ErrorAction SilentlyContinue
+
+    # Cleanup filesystem
+    Get-Childitem -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs" | Where-Object {($_.Name -like "AnyDesk*") } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+    Get-Childitem -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp" | Where-Object {($_.Name -like "AnyDesk*") } | Remove-Item -Force -ErrorAction SilentlyContinue
+    (Get-Childitem -Recurse -Path "C:\Windows\Installer" | Where-Object {($_.Name -like "AnyDesk*") }).Directory | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+
 }
 
 function restartAnyDeskService() {
@@ -155,11 +189,32 @@ function installAnyDesk($download) {
     
     sleep(5)
 
+    checkShortcuts
+
     Remove-Item -Path $downloadedAnydeskFile
 }
 
+function checkShortcuts() {
+    
+    Get-ChildItem "C:\Users" | ForEach-Object {
+        Get-ChildItem -Path "C:\Users\$_\Desktop" -Filter *.lnk | Where-Object {($_.Name -like "AnyDesk*") } | Remove-Item -Force
+    }
+
+    $location = "C:\Users\Public\Desktop\Anydesk.lnk"
+
+    $sh = New-Object -ComObject WScript.Shell
+    $target = $sh.CreateShortcut($location).TargetPath
+
+    $WshShell = New-Object -comObject WScript.Shell
+    $Shortcut = $WshShell.CreateShortcut($location)
+    $Shortcut.TargetPath =  "$anyDeskTargetinstallDirectory\$anyDeskFileName"
+    $Shortcut.Save()
+}
+
 function retainId() {
-    Get-Childitem -Path $anyDeskConfigDirectory -Recurse -Include "service.conf" | sort LastWriteTime | select -last 1 | Move-Item -Destination $anyDeskConfigDirectory\service.conf
+    if (Test-Path $anyDeskConfigDirectory) {
+        Get-Childitem -Path $anyDeskConfigDirectory -Recurse -Include "service.conf" | sort LastWriteTime | select -last 1 | Move-Item -Destination $anyDeskConfigDirectory\service.conf
+    }
 }
 
 function removeAndInstall() {
